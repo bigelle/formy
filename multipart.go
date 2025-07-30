@@ -132,15 +132,20 @@ func (w *Writer) WriteFile(fieldname, filename string, file io.Reader) *Writer {
 			buf []byte
 		)
 
-		if w.detectCt {
-			// reading it to both detect content type and write it to the part
-			buf, err = io.ReadAll(file)
-			if err != nil {
-				w.firstErr = err
-				return w
-			}
+		// reading it to both detect content type and write it to the part
+		buf, err = io.ReadAll(file)
+		if err != nil {
+			w.firstErr = err
+			return w
 		}
-		part, err := w.mw.CreatePart(fileFieldHeader(fieldname, filename, buf))
+
+		var h textproto.MIMEHeader
+		if w.detectCt {
+			h = fileFieldHeader(fieldname, filename, buf)
+		} else {
+			h = fileFieldHeader(fieldname, filename, nil)
+		}
+		part, err := w.mw.CreatePart(h)
 		if err != nil {
 			w.firstErr = err
 			return w
