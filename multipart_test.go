@@ -53,11 +53,13 @@ func TestWriter_AnyWrites(t *testing.T) {
 				buf, err := io.ReadAll(part)
 				assert.NoError(t, err)
 				assert.Equal(t, "0.42", string(buf))
-			case "file.txt":
+			case "file":
 				buf, err := io.ReadAll(part)
 				assert.NoError(t, err)
 				assert.Equal(t, "TEST DEEZ NUTS", string(buf))
 				assert.Equal(t, "file.txt", part.FileName())
+			default:
+				t.Fatalf("unexpected field: %s", part.FormName())
 			}
 		}
 	}

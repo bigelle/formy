@@ -11,21 +11,22 @@ import (
 	"github.com/gabriel-vasile/mimetype"
 )
 
+// Writer is a wrapper around [multipart.Writer]
 type Writer struct {
 	mw       *multipart.Writer
 	detectCt bool
 	firstErr error
 }
 
-func (w *Writer) DetectContentType(b bool) {
-	w.detectCt = b
-}
-
 func NewWriter(w io.Writer) *Writer {
 	return &Writer{
-		mw: multipart.NewWriter(w),
+		mw:       multipart.NewWriter(w),
 		detectCt: true,
 	}
+}
+
+func (w *Writer) DetectContentType(b bool) {
+	w.detectCt = b
 }
 
 func (w Writer) Boundary() string {
@@ -126,13 +127,26 @@ func (w *Writer) WriteFile(fieldname, filename string, file io.Reader) *Writer {
 			return w
 		}
 
-		part, err := w.mw.CreatePart(fileFieldHeader(fieldname, filename, file, w.detectCt))
+		var (
+			err error
+			buf []byte
+		)
+
+		if w.detectCt {
+			// reading it to both detect content type and write it to the part
+			buf, err = io.ReadAll(file)
+			if err != nil {
+				w.firstErr = err
+				return w
+			}
+		}
+		part, err := w.mw.CreatePart(fileFieldHeader(fieldname, filename, buf))
 		if err != nil {
 			w.firstErr = err
 			return w
 		}
 
-		_, err = io.Copy(part, file)
+		_, err = part.Write(buf)
 		if err != nil {
 			w.firstErr = err
 			return w
@@ -156,15 +170,12 @@ func textFieldHeader(fieldname string) textproto.MIMEHeader {
 	return h
 }
 
-func fileFieldHeader(fieldname, filename string, file io.Reader, detectCt bool) textproto.MIMEHeader {
+func fileFieldHeader(fieldname, filename string, buf []byte) textproto.MIMEHeader {
 	h := textproto.MIMEHeader{
 		"Content-Disposition": {fmt.Sprintf(`form-data; name="%s"; filename="%s"`, escapeQuotes(fieldname), escapeQuotes(filename))},
 	}
-	if file != nil && detectCt {
-		ct, err := mimetype.DetectReader(file)
-		if err != nil {
-			return h
-		}
+	if buf != nil {
+		ct := mimetype.Detect(buf)
 		h.Set("Content-Type", ct.String())
 	}
 	return h
