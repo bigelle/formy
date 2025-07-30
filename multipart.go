@@ -11,13 +11,14 @@ import (
 	"github.com/gabriel-vasile/mimetype"
 )
 
-// Writer is a wrapper around [multipart.Writer]
+// Writer is a wrapper around [multipart.Writer].
 type Writer struct {
 	mw       *multipart.Writer
 	detectCt bool
 	firstErr error
 }
 
+// NewWriter is a wrapper around [multipart.NewWriter] which is auto-detecting content type by default
 func NewWriter(w io.Writer) *Writer {
 	return &Writer{
 		mw:       multipart.NewWriter(w),
@@ -25,18 +26,22 @@ func NewWriter(w io.Writer) *Writer {
 	}
 }
 
+// DetectContentType used to turn on/off content type detection
 func (w *Writer) DetectContentType(b bool) {
 	w.detectCt = b
 }
 
+// Boundary is a wrapper around [multipart.Writer.Boundary]
 func (w Writer) Boundary() string {
 	return w.mw.Boundary()
 }
 
+// FormDataContentType is a wrapper around [multipart.Writer.FormDataContentType]
 func (w Writer) FormDataContentType() string {
 	return w.mw.FormDataContentType()
 }
 
+// WriteString is a wrapper around [multipart.Writer.WriteField]
 func (w *Writer) WriteString(fieldname, str string) *Writer {
 	if w.firstErr == nil {
 		w.firstErr = w.mw.WriteField(fieldname, str)
@@ -44,6 +49,8 @@ func (w *Writer) WriteString(fieldname, str string) *Writer {
 	return w
 }
 
+// WriteAnyTextField is equivalent to creating a part and writing val using [fmt.Fprint]
+// with the part as writer and val as value
 func (w *Writer) WriteAnyTextField(fieldname string, val any) *Writer {
 	if w.firstErr == nil {
 		if fieldname == "" {
@@ -60,7 +67,6 @@ func (w *Writer) WriteAnyTextField(fieldname string, val any) *Writer {
 			w.firstErr = err
 			return w
 		}
-
 		if _, err = fmt.Fprint(part, val); err != nil {
 			w.firstErr = err
 			return w
@@ -69,22 +75,31 @@ func (w *Writer) WriteAnyTextField(fieldname string, val any) *Writer {
 	return w
 }
 
+// WriteInt creates a part with the given fieldname and writes i as is.
+// It is a wrapper around [Writer.WriteAnyTextField]
 func (w *Writer) WriteInt(fieldname string, i int) *Writer {
 	return w.WriteAnyTextField(fieldname, i)
 }
 
+// It is a wrapper around [Writer.WriteAnyTextField]
+// WriteBool creates a part with the given fieldname and writes b as is
 func (w *Writer) WriteBool(fieldname string, b bool) *Writer {
 	return w.WriteAnyTextField(fieldname, b)
 }
 
+// WriteFloat32 creates a part with the given fieldname and writes f as is
+// It is a wrapper around [Writer.WriteAnyTextField]
 func (w *Writer) WriteFloat32(fieldname string, f float32) *Writer {
 	return w.WriteAnyTextField(fieldname, f)
 }
 
+// WriteFloat64 creates a part with the given fieldname and writes f as is
+// It is a wrapper around [Writer.WriteAnyTextField]
 func (w *Writer) WriteFloat64(fieldname string, f float64) *Writer {
 	return w.WriteAnyTextField(fieldname, f)
 }
 
+// WriteJSON creates a part with the given fieldname and writes v as JSON encoded value
 func (w *Writer) WriteJSON(fieldname string, v any) *Writer {
 	if w.firstErr == nil {
 		if fieldname == "" {
@@ -112,6 +127,10 @@ func (w *Writer) WriteJSON(fieldname string, v any) *Writer {
 	return w
 }
 
+// WriteFile creates a part with the given fieldname and filename and writes the file into the part.
+// If w.detectCt is true, it will read the first 3072 bytes
+// and automatically set the "Content-Type" header to the most suitable MIME type.
+// Otherwise, or if the detection failed, "application/octet-stream" will be used instead
 func (w *Writer) WriteFile(fieldname, filename string, file io.Reader) *Writer {
 	if w.firstErr == nil {
 		if fieldname == "" {
@@ -160,9 +179,10 @@ func (w *Writer) WriteFile(fieldname, filename string, file io.Reader) *Writer {
 	return w
 }
 
+// Close returns the first error occurred while writing any fields,
+// or the result of [multipart.Writer.Close]
 func (w *Writer) Close() error {
 	if w.firstErr != nil {
-		w.mw.Close()
 		return w.firstErr
 	}
 	return w.mw.Close()
@@ -182,6 +202,8 @@ func fileFieldHeader(fieldname, filename string, buf []byte) textproto.MIMEHeade
 	if buf != nil {
 		ct := mimetype.Detect(buf)
 		h.Set("Content-Type", ct.String())
+	} else {
+		h.Set("Content-Type", "application/octet-stream")
 	}
 	return h
 }
