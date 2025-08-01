@@ -49,6 +49,15 @@ func (w *Writer) WriteString(fieldname, str string) *Writer {
 	return w
 }
 
+// WriteOptionalString is a wrapper around [multipart.Writer.WriteField]
+// that writes the string only if str is not nil
+func (w *Writer) WriteOptionalString(fieldname string, str *string) *Writer {
+	if str != nil {
+		return w.WriteString(fieldname, *str)
+	}
+	return w
+}
+
 // WriteAnyTextField is equivalent to creating a part and writing val using [fmt.Fprint]
 // with the part as writer and val as value
 func (w *Writer) WriteAnyTextField(fieldname string, val any) *Writer {
@@ -81,25 +90,62 @@ func (w *Writer) WriteInt(fieldname string, i int) *Writer {
 	return w.WriteAnyTextField(fieldname, i)
 }
 
+// WriteOptionalInt creates a part with the given fieldname and writes i if it's not nil.
 // It is a wrapper around [Writer.WriteAnyTextField]
-// WriteBool creates a part with the given fieldname and writes b as is
+func (w *Writer) WriteOptionalInt(fieldname string, i *int) *Writer {
+	if i != nil {
+		return w.WriteAnyTextField(fieldname, *i)
+	}
+	return w
+}
+
+// WriteBool creates a part with the given fieldname and writes b as is.
+// It is a wrapper around [Writer.WriteAnyTextField]
 func (w *Writer) WriteBool(fieldname string, b bool) *Writer {
 	return w.WriteAnyTextField(fieldname, b)
 }
 
-// WriteFloat32 creates a part with the given fieldname and writes f as is
+// WriteOptionalBool creates a part with the given fieldname and writes b if it's not nil.
+// It is a wrapper around [Writer.WriteAnyTextField]
+func (w *Writer) WriteOptionalBool(fieldname string, b *bool) *Writer {
+	if b != nil {
+		return w.WriteAnyTextField(fieldname, *b)
+	}
+	return w
+}
+
+// WriteFloat32 creates a part with the given fieldname and writes f as is.
 // It is a wrapper around [Writer.WriteAnyTextField]
 func (w *Writer) WriteFloat32(fieldname string, f float32) *Writer {
 	return w.WriteAnyTextField(fieldname, f)
 }
 
-// WriteFloat64 creates a part with the given fieldname and writes f as is
+// WriteOptionalFloat32 creates a part with the given fieldname and writes f if it's not nil.
+// It is a wrapper around [Writer.WriteAnyTextField]
+func (w *Writer) WriteOptionalFloat32(fieldname string, f *float32) *Writer {
+	if f != nil {
+		return w.WriteAnyTextField(fieldname, *f)
+	}
+	return w
+}
+
+// WriteFloat64 creates a part with the given fieldname and writes f as is.
 // It is a wrapper around [Writer.WriteAnyTextField]
 func (w *Writer) WriteFloat64(fieldname string, f float64) *Writer {
 	return w.WriteAnyTextField(fieldname, f)
 }
 
-// WriteJSON creates a part with the given fieldname and writes v as JSON encoded value
+// WriteFloat64 creates a part with the given fieldname and writes f if it's not nil.
+// It is a wrapper around [Writer.WriteAnyTextField]
+func (w *Writer) WriteOptionalFloat64(fieldname string, f *float64) *Writer {
+	if f != nil {
+		return w.WriteAnyTextField(fieldname, *f)
+	}
+	return w
+}
+
+// WriteJSON creates a part with the given fieldname and writes v as JSON encoded value.
+// V can't be nil
 func (w *Writer) WriteJSON(fieldname string, v any) *Writer {
 	if w.firstErr == nil {
 		if fieldname == "" {
@@ -108,6 +154,35 @@ func (w *Writer) WriteJSON(fieldname string, v any) *Writer {
 		}
 		if v == nil {
 			w.firstErr = fmt.Errorf("empty field value")
+			return w
+		}
+
+		part, err := w.mw.CreatePart(textFieldHeader(fieldname))
+		if err != nil {
+			w.firstErr = err
+			return w
+		}
+
+		enc := json.NewEncoder(part)
+		enc.SetEscapeHTML(false)
+		if err := enc.Encode(v); err != nil {
+			w.firstErr = err
+			return w
+		}
+	}
+	return w
+}
+
+// WriteJSON creates a part with the given fieldname and writes v as JSON encoded value,
+// or does nothing if it's nil, and does not return an error
+func (w *Writer) WriteOptionalJSON(fieldname string, v any) *Writer {
+	if w.firstErr == nil {
+		if fieldname == "" {
+			w.firstErr = fmt.Errorf("empty field name")
+			return w
+		}
+		if v == nil {
+			// since it's optional it's not an error
 			return w
 		}
 
