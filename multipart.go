@@ -50,10 +50,10 @@ func (w *Writer) WriteString(fieldname, str string) *Writer {
 }
 
 // WriteOptionalString is a wrapper around [multipart.Writer.WriteField]
-// that writes the string only if str is not nil
-func (w *Writer) WriteOptionalString(fieldname string, str *string) *Writer {
-	if str != nil {
-		return w.WriteString(fieldname, *str)
+// that writes the string only if str is not empty
+func (w *Writer) WriteOptionalString(fieldname string, str string) *Writer {
+	if str != "" {
+		return w.WriteString(fieldname, str)
 	}
 	return w
 }
@@ -90,11 +90,11 @@ func (w *Writer) WriteInt(fieldname string, i int) *Writer {
 	return w.WriteAnyTextField(fieldname, i)
 }
 
-// WriteOptionalInt creates a part with the given fieldname and writes i if it's not nil.
+// WriteOptionalInt creates a part with the given fieldname and writes i if it's not zero.
 // It is a wrapper around [Writer.WriteAnyTextField]
-func (w *Writer) WriteOptionalInt(fieldname string, i *int) *Writer {
-	if i != nil {
-		return w.WriteAnyTextField(fieldname, *i)
+func (w *Writer) WriteOptionalInt(fieldname string, i int) *Writer {
+	if i != 0 {
+		return w.WriteAnyTextField(fieldname, i)
 	}
 	return w
 }
@@ -105,11 +105,11 @@ func (w *Writer) WriteBool(fieldname string, b bool) *Writer {
 	return w.WriteAnyTextField(fieldname, b)
 }
 
-// WriteOptionalBool creates a part with the given fieldname and writes b if it's not nil.
+// WriteOptionalBool creates a part with the given fieldname and writes b if it's true.
 // It is a wrapper around [Writer.WriteAnyTextField]
-func (w *Writer) WriteOptionalBool(fieldname string, b *bool) *Writer {
-	if b != nil {
-		return w.WriteAnyTextField(fieldname, *b)
+func (w *Writer) WriteOptionalBool(fieldname string, b bool) *Writer {
+	if b == true {
+		return w.WriteAnyTextField(fieldname, b)
 	}
 	return w
 }
@@ -120,11 +120,11 @@ func (w *Writer) WriteFloat32(fieldname string, f float32) *Writer {
 	return w.WriteAnyTextField(fieldname, f)
 }
 
-// WriteOptionalFloat32 creates a part with the given fieldname and writes f if it's not nil.
+// WriteOptionalFloat32 creates a part with the given fieldname and writes f if it's not zero.
 // It is a wrapper around [Writer.WriteAnyTextField]
-func (w *Writer) WriteOptionalFloat32(fieldname string, f *float32) *Writer {
-	if f != nil {
-		return w.WriteAnyTextField(fieldname, *f)
+func (w *Writer) WriteOptionalFloat32(fieldname string, f float32) *Writer {
+	if f != 0 {
+		return w.WriteAnyTextField(fieldname, f)
 	}
 	return w
 }
@@ -135,11 +135,11 @@ func (w *Writer) WriteFloat64(fieldname string, f float64) *Writer {
 	return w.WriteAnyTextField(fieldname, f)
 }
 
-// WriteFloat64 creates a part with the given fieldname and writes f if it's not nil.
+// WriteFloat64 creates a part with the given fieldname and writes f if it's not zero.
 // It is a wrapper around [Writer.WriteAnyTextField]
-func (w *Writer) WriteOptionalFloat64(fieldname string, f *float64) *Writer {
-	if f != nil {
-		return w.WriteAnyTextField(fieldname, *f)
+func (w *Writer) WriteOptionalFloat64(fieldname string, f float64) *Writer {
+	if f != 0 {
+		return w.WriteAnyTextField(fieldname, f)
 	}
 	return w
 }
