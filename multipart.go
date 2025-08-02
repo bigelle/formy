@@ -6,11 +6,13 @@ import (
 	"io"
 	"mime/multipart"
 	"net/textproto"
-	"reflect"
 	"strings"
 
 	"github.com/gabriel-vasile/mimetype"
 )
+
+// Condition is a function that desides if the value should be writed or ignored
+type Condition func() bool
 
 // Writer is a wrapper around [multipart.Writer].
 type Writer struct {
@@ -51,9 +53,9 @@ func (w *Writer) WriteString(fieldname, str string) *Writer {
 }
 
 // WriteOptionalString is a wrapper around [multipart.Writer.WriteField]
-// that writes the string only if str is not empty
-func (w *Writer) WriteOptionalString(fieldname string, str string) *Writer {
-	if str != "" {
+// that writes the string only if cond returns true
+func (w *Writer) WriteStringCond(fieldname string, str string, cond Condition) *Writer {
+	if cond() {
 		return w.WriteString(fieldname, str)
 	}
 	return w
@@ -85,16 +87,41 @@ func (w *Writer) WriteAnyTextField(fieldname string, val any) *Writer {
 	return w
 }
 
+// WriteAnyTextField is equivalent to creating a part and writing val using [fmt.Fprint]
+// with the part as writer and val as value, if cond return true
+func (w *Writer) WriteAnyTextFieldCond(fieldname string, val any, cond Condition) *Writer {
+	if w.firstErr == nil && cond() {
+		if fieldname == "" {
+			w.firstErr = fmt.Errorf("empty field name")
+			return w
+		}
+		if !cond() {
+			return w
+		}
+
+		part, err := w.mw.CreatePart(textFieldHeader(fieldname))
+		if err != nil {
+			w.firstErr = err
+			return w
+		}
+		if _, err = fmt.Fprint(part, val); err != nil {
+			w.firstErr = err
+			return w
+		}
+	}
+	return w
+}
+
 // WriteInt creates a part with the given fieldname and writes i as is.
 // It is a wrapper around [Writer.WriteAnyTextField]
 func (w *Writer) WriteInt(fieldname string, i int) *Writer {
 	return w.WriteAnyTextField(fieldname, i)
 }
 
-// WriteOptionalInt creates a part with the given fieldname and writes i if it's not zero.
+// WriteIntCond creates a part with the given fieldname and writes i if cond returns true.
 // It is a wrapper around [Writer.WriteAnyTextField]
-func (w *Writer) WriteOptionalInt(fieldname string, i int) *Writer {
-	if i != 0 {
+func (w *Writer) WriteIntCond(fieldname string, i int, cond Condition) *Writer {
+	if cond() {
 		return w.WriteAnyTextField(fieldname, i)
 	}
 	return w
@@ -106,10 +133,10 @@ func (w *Writer) WriteBool(fieldname string, b bool) *Writer {
 	return w.WriteAnyTextField(fieldname, b)
 }
 
-// WriteOptionalBool creates a part with the given fieldname and writes b if it's true.
+// WriteBoolCond creates a part with the given fieldname and writes b if cond returns true.
 // It is a wrapper around [Writer.WriteAnyTextField]
-func (w *Writer) WriteOptionalBool(fieldname string, b bool) *Writer {
-	if b == true {
+func (w *Writer) WriteBoolCond(fieldname string, b bool, cond Condition) *Writer {
+	if cond() {
 		return w.WriteAnyTextField(fieldname, b)
 	}
 	return w
@@ -121,10 +148,10 @@ func (w *Writer) WriteFloat32(fieldname string, f float32) *Writer {
 	return w.WriteAnyTextField(fieldname, f)
 }
 
-// WriteOptionalFloat32 creates a part with the given fieldname and writes f if it's not zero.
+// WriteFloat32Cond creates a part with the given fieldname and writes f if cond returns true.
 // It is a wrapper around [Writer.WriteAnyTextField]
-func (w *Writer) WriteOptionalFloat32(fieldname string, f float32) *Writer {
-	if f != 0 {
+func (w *Writer) WriteFloat32Cond(fieldname string, f float32, cond Condition) *Writer {
+	if cond() {
 		return w.WriteAnyTextField(fieldname, f)
 	}
 	return w
@@ -136,10 +163,10 @@ func (w *Writer) WriteFloat64(fieldname string, f float64) *Writer {
 	return w.WriteAnyTextField(fieldname, f)
 }
 
-// WriteFloat64 creates a part with the given fieldname and writes f if it's not zero.
+// WriteFloat64 creates a part with the given fieldname and writes f if cond returns true.
 // It is a wrapper around [Writer.WriteAnyTextField]
-func (w *Writer) WriteOptionalFloat64(fieldname string, f float64) *Writer {
-	if f != 0 {
+func (w *Writer) WriteFloat64Cond(fieldname string, f float64, cond Condition) *Writer {
+	if cond() {
 		return w.WriteAnyTextField(fieldname, f)
 	}
 	return w
@@ -174,18 +201,15 @@ func (w *Writer) WriteJSON(fieldname string, v any) *Writer {
 	return w
 }
 
-// TODO: add optional arrays, maps and slices that will check for default and nil value
-// and write it as JSON
-
-// WriteJSON creates a part with the given fieldname and writes v as JSON encoded value,
-// or does nothing if it's nil, and does not return an error
-func (w *Writer) WriteOptionalJSON(fieldname string, v any) *Writer {
+// WriteJSON creates a part with the given fieldname,
+// and writes v as JSON encoded value if cond returns true
+func (w *Writer) WriteJSONCond(fieldname string, v any, cond Condition) *Writer {
 	if w.firstErr == nil {
 		if fieldname == "" {
 			w.firstErr = fmt.Errorf("empty field name")
 			return w
 		}
-		if v == nil || (reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil()) {
+		if !cond() {
 			return w
 		}
 
