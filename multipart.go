@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/textproto"
+	"reflect"
 	"strings"
 
 	"github.com/gabriel-vasile/mimetype"
@@ -173,6 +174,9 @@ func (w *Writer) WriteJSON(fieldname string, v any) *Writer {
 	return w
 }
 
+// TODO: add optional arrays, maps and slices that will check for default and nil value
+// and write it as JSON
+
 // WriteJSON creates a part with the given fieldname and writes v as JSON encoded value,
 // or does nothing if it's nil, and does not return an error
 func (w *Writer) WriteOptionalJSON(fieldname string, v any) *Writer {
@@ -181,8 +185,7 @@ func (w *Writer) WriteOptionalJSON(fieldname string, v any) *Writer {
 			w.firstErr = fmt.Errorf("empty field name")
 			return w
 		}
-		if v == nil {
-			// since it's optional it's not an error
+		if v == nil || (reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil()) {
 			return w
 		}
 
